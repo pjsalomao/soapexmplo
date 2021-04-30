@@ -1,0 +1,268 @@
+package br.testeSoap;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.io.StringWriter;
+import java.util.Base64;
+import java.util.Iterator;
+
+import javax.xml.namespace.QName;
+import javax.xml.soap.AttachmentPart;
+import javax.xml.soap.MessageFactory;
+import javax.xml.soap.MimeHeaders;
+import javax.xml.soap.SOAPBody;
+import javax.xml.soap.SOAPBodyElement;
+import javax.xml.soap.SOAPConnection;
+import javax.xml.soap.SOAPConnectionFactory;
+import javax.xml.soap.SOAPElement;
+import javax.xml.soap.SOAPEnvelope;
+import javax.xml.soap.SOAPException;
+import javax.xml.soap.SOAPMessage;
+import javax.xml.soap.SOAPPart;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.CDATASection;
+import org.w3c.dom.Document;
+
+public class SoaptesteDois {
+	
+	static String usuario = "22360";
+	static String empresa = "0699";
+	static String dataIni = "01/03/2021";
+	static String dataFim = "31/03/2021";
+
+	public static void main(String[] args) {
+
+		String soapEndpointUrl = "http://10.0.0.223/g5-senior-services/ronda_Synccom_senior_g5_rh_hr_relatorios?wsd";
+		// This action url will change as per the function you are calling
+		String soapAction = "http://10.0.0.223/g5-senior-services/ronda_Synccom_senior_g5_rh_hr_relatorios?wsd";
+		String jobid = "13077";
+		String optype = "log";
+		String line;
+		String response = "";
+		String reqresponse = callSoapWebService(soapEndpointUrl, soapAction, jobid, optype);
+		if (reqresponse.indexOf("Error") == -1) {
+			Reader inputString = new StringReader(reqresponse);
+			BufferedReader bReader = new BufferedReader(inputString);
+			int lcount = 0;
+			try {
+				while ((line = bReader.readLine()) != null) {
+					lcount++;
+					if (lcount == 6 || lcount == 7) {
+						response += line;
+					}
+				}
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		System.out.println(response);
+	}
+
+	private static void createSoapEnvelope(SOAPMessage soapMessage, String jobid, String optype) throws SOAPException {
+		SOAPPart soapPart = soapMessage.getSOAPPart();
+		// Create this based on the SOAP request XML, you can use SOAP UI to get the XML
+		// as you like
+		String myNamespace1 = "soapenv";
+		String myNamespaceURI1 = "http://schemas.xmlsoap.org/soap/envelope/";
+		
+		String myNamespace2 = "ser";
+		String myNamespaceURI2 = "http://services.senior.com.br";
+
+		// SOAP Envelope
+		SOAPEnvelope envelope = soapPart.getEnvelope();
+		//envelope.addNamespaceDeclaration(myNamespace1, myNamespaceURI1);
+		envelope.addNamespaceDeclaration(myNamespace2, myNamespaceURI2);
+
+		
+
+		// SOAPHeader soapHeaer = envelope.getHeader();
+
+		// SOAP Body
+		SOAPBody soapBody = envelope.getBody();
+	//	SOAPBodyElement soapBodyElem = soapBody.addBodyElement(new QName("Relatorios", "ser"));//soapBody.addChildElement("Relatorios", "ser");
+		SOAPElement soapBodyElem = soapBody.addChildElement("Relatorios","ser");
+		
+		SOAPElement user = soapBodyElem.addChildElement("user");
+		user.addTextNode("GISELE.GUILHERME");
+
+		SOAPElement senha = soapBodyElem.addChildElement("password");
+		senha.addTextNode("Gisele123*");
+
+		SOAPElement encryption = soapBodyElem.addChildElement("encryption");
+		encryption.addTextNode("0");
+
+		SOAPElement parameters = soapBodyElem.addChildElement("parameters");
+		
+		//QName prdirName = new QName("prDir", "parameters");
+		SOAPElement prdir = parameters.addChildElement("prDir");
+		prdir.addTextNode("C:\\Users\\paulo.salomao\\Documents\\portal_colaborador\\ponto");
+		
+	//	QName execfmtName = new QName("prExecFmt", "parameters");
+		SOAPElement execfmt = parameters.addChildElement("prExecFmt");
+		execfmt.addTextNode("tefFile");
+
+		//QName saveFormatName = new QName("prSaveFormat", "parameters");
+		SOAPElement saveFormat = parameters.addChildElement("prSaveFormat");
+		saveFormat.addTextNode("tsfPDF");
+
+		//QName fileNametName = new QName("prFileName", "parameters");
+		SOAPElement fileName = parameters.addChildElement("prFileName");
+		fileName.addTextNode("Cartao_Ponto_" + usuario + ".pdf");
+
+		//QName entranceIsXMLName = new QName("prEntranceIsXML", "parameters");
+		SOAPElement entranceIsXML = parameters.addChildElement("prEntranceIsXML");
+		entranceIsXML.addTextNode("F");
+
+	//	QName relatorioName = new QName("prRelatorio", "parameters");
+		SOAPElement relatorio = parameters.addChildElement("prRelatorio");
+		relatorio.addTextNode("HRCP110.APU");
+
+		String cdataString = "<EDatInR=" + dataIni + "><EDatFiR=" + dataFim +"><EMarAfa=S\r\n" + 
+				"><EMarFol=S><ETruMar=N><ELisCab=N><ELisDem=S><EAbrGPe=N><EAbrTDc=0>\r\n" + 
+				"<GRDLOTE=0><EAbrEmp=" + empresa + "><EAbrTcl=1><EAbrCad=" + usuario + ">";
+	//	QName entradaName = new QName("prEntrada", "parameters");
+		SOAPElement entrada = parameters.addChildElement("prEntrada");
+
+		CDATASection cdata = entrada.getOwnerDocument().createCDATASection(cdataString);
+		entrada.appendChild(cdata);
+
+	}
+
+	private static String callSoapWebService(String soapEndpointUrl, String soapAction, String jobid, String optype) {
+		String returnvalue = "";
+		try {
+			// Create SOAP Connection
+			SOAPConnectionFactory soapConnectionFactory = SOAPConnectionFactory.newInstance();
+			SOAPConnection soapConnection = soapConnectionFactory.createConnection();
+
+			// Send SOAP Message to SOAP Server
+			SOAPMessage soapRequest = createSOAPRequest(soapAction, jobid, optype);
+			SOAPMessage soapResponse = soapConnection.call(soapRequest, soapEndpointUrl);
+			
+			Document xmlARequisicao = soapRequest.getSOAPBody().getOwnerDocument();
+	        System.out.println(passarXMLParaString(xmlARequisicao,4));
+			
+			Document xmlRespostaARequisicao=soapResponse.getSOAPBody().getOwnerDocument();
+	        System.out.println(passarXMLParaString(xmlRespostaARequisicao,4));
+
+			// Print the SOAP Response
+		//	 System.out.println("Response SOAP Message:");
+		//	 soapResponse.writeTo(System.out);
+		//	 System.out.println();
+
+			/****** extract zip ****/
+
+			try {
+				int numOfAttachments = soapResponse.countAttachments();
+				Iterator<?> attachments = soapResponse.getAttachments();
+
+				StringBuilder buf = new StringBuilder("Number of attachments: ");
+				buf.append(numOfAttachments);
+				int count = 1;
+				while (attachments.hasNext()) {
+					AttachmentPart attachment = (AttachmentPart) attachments.next();
+					buf.append(" | #").append(count);
+					buf.append(" | Content Location: ").append(attachment.getContentLocation());
+					buf.append(" | Content Id: ").append(attachment.getContentId());
+					buf.append(" | Content Size: ").append(attachment.getSize());
+					buf.append(" | Content Type: ").append(attachment.getContentType());
+					buf.append(" | Content String: ").append(attachment.toString());
+					count++;
+
+					// getting the file to particular Driver Name(C drive ,D drive)
+
+					// OutputStream fos = new FileOutputStream(new
+					// File("D:\\tmp\\fresponse_2048.zip"));
+					java.io.FileOutputStream out_file = new java.io.FileOutputStream("D:\\tmp\\" + jobid + ".zip");
+					out_file.write(attachment.getRawContentBytes());
+					out_file.close();
+
+				}
+				// System.out.println(buf.toString());
+			} catch (SOAPException e) {
+				System.out.println(e.getMessage());
+			}
+
+			/**** extract zip *****/
+
+			soapConnection.close();
+
+			/** write to a variable **/
+			ByteArrayOutputStream stream = new ByteArrayOutputStream();
+			soapResponse.writeTo(stream);
+			returnvalue = new String(stream.toByteArray(), "utf-8");
+
+		} catch (Exception e) {
+			returnvalue = "Error occurred while sending SOAP Request to Server!\nMake sure you have the correct endpoint URL and SOAPAction!";
+		}
+		return returnvalue;
+	}
+
+	private static SOAPMessage createSOAPRequest(String soapAction, String jobid, String optype) throws Exception {
+		MessageFactory messageFactory = MessageFactory.newInstance();
+		SOAPMessage soapMessage = messageFactory.createMessage();
+
+		createSoapEnvelope(soapMessage, jobid, optype);
+
+	//	String authstr = "<<userid>>:<<password>>";
+	//	byte[] authBytes = authstr.getBytes("UTF-8");
+	//	String auth = Base64.getEncoder().encodeToString(authBytes);
+
+		// String authorization = new
+		// sun.misc.BASE64Encoder().encode((username+":"+password).getBytes());
+		// MimeHeaders hd = message.getMimeHeaders();
+		// hd.addHeader("Authorization", "Basic " + authorization);
+
+		MimeHeaders headers = soapMessage.getMimeHeaders();
+		headers.addHeader("Authorization", "Basic ");
+		headers.addHeader("SOAPAction", soapAction);
+		headers.addHeader("Content-Type", "text/xml");
+		headers.addHeader("Host", "10.0.0.223");
+		headers.addHeader("Connection", "keep-alive");
+
+		soapMessage.saveChanges();
+
+		/* Print the request message, just for debugging purposes */
+		// System.out.println("Request SOAP Message:");
+		// soapMessage.writeTo(System.out);
+		// System.out.println("\n");
+
+		return soapMessage;
+	}
+	
+	 public static String passarXMLParaString(Document xml, int espacosIdentacao){
+	        try {
+	            //set up a transformer
+	            TransformerFactory transfac = TransformerFactory.newInstance();
+	            transfac.setAttribute("indent-number", new Integer(espacosIdentacao));
+	            Transformer trans = transfac.newTransformer();
+	            trans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+	            trans.setOutputProperty(OutputKeys.INDENT, "yes");
+	 
+	            //create string from xml tree
+	            StringWriter sw = new StringWriter();
+	            StreamResult result = new StreamResult(sw);
+	            DOMSource source = new DOMSource(xml);
+	            trans.transform(source, result);
+	            String xmlString = sw.toString();
+	            return xmlString;
+	        }
+	        catch (TransformerException e) {
+	            // TODO Auto-generated catch block
+	            e.printStackTrace();
+	            System.exit(0);
+	        }
+	        return null;
+	    }
+
+}
