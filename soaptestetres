@@ -1,0 +1,106 @@
+package br.testeSoap;
+
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.StringWriter;
+
+import javax.xml.soap.MessageFactory;
+import javax.xml.soap.MimeHeaders;
+import javax.xml.soap.SOAPConnection;
+import javax.xml.soap.SOAPConnectionFactory;
+import javax.xml.soap.SOAPException;
+import javax.xml.soap.SOAPMessage;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
+import javax.xml.transform.TransformerFactory;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.transform.stream.StreamResult;
+
+import org.w3c.dom.Document;
+
+public class SoapTesteTres {
+
+	public static void main(String[] args) throws IOException {
+		
+		String requestSoap;//requisicao/request no formato xml, repare que isto foi copiado da regiao destacada em azul na figura 1
+        requestSoap =  "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:ser=\"http://services.senior.com.br\">\n"
++ "   <soapenv:Header/>\n"
++ "   <soapenv:Body>\n"
++ "      <ser:Relatorios>\n"
++ "         <user>GISELE.GUILHERME</user>\n"
++ "         <password>Gisele123*</password>\n"
++ "         <encryption>0</encryption>\n"
++ "         <parameters>\n"
++ "         	<prDir>C:\\Senior\\Vetorh\\Relatorios</prDir>\n"
++ "         	<prSaveFormat>tsfPDF</prSaveFormat>\n"
++ "         	<prFileName>Cartao_Ponto_1000.pdf</prFileName>\n"
++ "         	<prEntranceIsXML>F</prEntranceIsXML>\n"
++ "         	<prRelatorio>HRCP110.APU</prRelatorio>\n"
++ "         	<prEntrada><![CDATA[<EDatInR=01/01/2021><EDatFiR=31/01/2021><EMarAfa=S\n"
++ "         	><EMarFol=S><ETruMar=N><ELisCab=N><ELisDem=S><EAbrGPe=N><EAbrTDc=0>\n"
++ "         	<GRDLOTE=0><EAbrEmp=0699><EAbrTcl=1><EAbrCad=22360>]]></prEntrada>\n"
++ "         </parameters>\n"
++ "      </ser:Relatorios>\n"
++ "   </soapenv:Body>\n"
++ "</soapenv:Envelope>";
+        
+        SOAPConnectionFactory soapConnectionFactory;
+		try {
+			soapConnectionFactory = SOAPConnectionFactory.newInstance();
+			SOAPConnection soapConnection = soapConnectionFactory.createConnection();
+	        String url = "http://10.0.0.223/g5-senior-services/ronda_Synccom_senior_g5_rh_hr_relatorios?wsd";//url do webservice nao e a url do wsdl do webservice, repare que isto foi copia da parte vermelha da figura 1
+	        MimeHeaders headers = new MimeHeaders();
+	        headers.addHeader("Content-Type", "text/xml");
+	        headers.addHeader("SOAPAction", url); 
+	        headers.addHeader("Host", "10.0.0.223");
+	        headers.addHeader("Connection", "keep-alive");
+	 
+	        MessageFactory messageFactory = MessageFactory.newInstance();
+	 
+	        SOAPMessage msg = messageFactory.createMessage(headers, (new ByteArrayInputStream(requestSoap.getBytes())));
+	       
+	        Document xmlARequisicao = msg.getSOAPBody().getOwnerDocument();
+	        System.out.println(passarXMLParaString(xmlARequisicao,4));//imprime na tela o xml de requisição.
+	        
+	        SOAPMessage soapResponse = soapConnection.call(msg, url);
+	        Document xmlRespostaARequisicao=soapResponse.getSOAPBody().getOwnerDocument();
+	        System.out.println(passarXMLParaString(xmlRespostaARequisicao,4));//imprime na tela o xml de retorno.
+	        
+		} catch (UnsupportedOperationException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SOAPException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+        
+    }
+    public static String passarXMLParaString(Document xml, int espacosIdentacao){
+        try {
+            //set up a transformer
+            TransformerFactory transfac = TransformerFactory.newInstance();
+            transfac.setAttribute("indent-number", new Integer(espacosIdentacao));
+            Transformer trans = transfac.newTransformer();
+            trans.setOutputProperty(OutputKeys.OMIT_XML_DECLARATION, "yes");
+            trans.setOutputProperty(OutputKeys.INDENT, "yes");
+ 
+            //create string from xml tree
+            StringWriter sw = new StringWriter();
+            StreamResult result = new StreamResult(sw);
+            DOMSource source = new DOMSource(xml);
+            trans.transform(source, result);
+            String xmlString = sw.toString();
+            return xmlString;
+        }
+        catch (TransformerException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+            System.exit(0);
+        }
+        return null;
+    }
+
+	
+
+}
